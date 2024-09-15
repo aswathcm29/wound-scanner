@@ -1,20 +1,26 @@
-# Use an official Python runtime as a parent image
-FROM python:latest
+FROM python:3-alpine AS builder
 
-# Setup the working directory
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+RUN python3 -m venv ror-docker-env
+ENV VIRTUAL_ENV=/app/ror-docker-env
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Install any needed packages specified in requirements.txt
+COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# Expose port 5000 (Flask's default port)
-EXPOSE 5000
+# Stage 2
+FROM python:3-alpine AS runner
 
-# Set environment variable for Flask app
-ENV FLASK_APP=app.py
+WORKDIR /app
 
-# Command to run the Flask app
-CMD ["flask", "run", "--host=0.0.0.0"]
+COPY --from=builder /app/ror-docker-env ror-docker-env
+COPY app.py app.py
+
+ENV VIRTUAL_ENV=/app/ror-docker-env
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV FLASK_APP=app/app.py
+
+EXPOSE 8080
+
+CMD ["gunicorn", "--bind" , ":8080", "--workers", "2", "app:app"]
